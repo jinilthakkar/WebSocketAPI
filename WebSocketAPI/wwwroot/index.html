@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="EN">
+<head>
+    <title>DataHub SignalR Two-Column Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .column {
+            flex: 1;
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        .buttons {
+            margin-bottom: 10px;
+        }
+        .output {
+            flex: 1;
+            background-color: #f9f9f9;
+            border: 1px solid #aaa;
+            padding: 10px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        button {
+            margin-right: 8px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>DataHub SignalR Two-Column Test</h2>
+    <div class="container">
+        <div class="column" id="ordersColumn">
+            <div class="buttons">
+                <button id="subscribeOrdersBtn">Subscribe Orders</button>
+                <button id="stopOrdersBtn">Stop Orders</button>
+            </div>
+            <div id="ordersOutput" class="output"></div>
+        </div>
+
+        <div class="column" id="customerColumn">
+            <div class="buttons">
+                <button id="subscribeCustomerBtn">Subscribe Customer</button>
+                <button id="stopCustomerBtn">Stop Customer</button>
+            </div>
+            <div id="customerOutput" class="output"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script>
+        const hubUrl = "https://localhost:3000/datahub";
+
+        let ordersConnection = null;
+        const ordersOutput = document.getElementById('ordersOutput');
+        const subscribeOrdersBtn = document.getElementById('subscribeOrdersBtn');
+        const stopOrdersBtn = document.getElementById('stopOrdersBtn');
+				stopOrdersBtn.disabled = true;
+
+        let customerConnection = null;
+        const customerOutput = document.getElementById('customerOutput');
+        const subscribeCustomerBtn = document.getElementById('subscribeCustomerBtn');
+        const stopCustomerBtn = document.getElementById('stopCustomerBtn');
+				stopCustomerBtn.disabled = true;
+
+        function appendOutput(element, message) {
+            element.textContent += message + "\n\n";
+            element.scrollTop = element.scrollHeight; // Auto-scroll to bottom
+        }
+
+        subscribeOrdersBtn.addEventListener('click', async () => {
+            const customerId = prompt("Enter CustomerId to subscribe to Orders:");
+            if (!customerId) return;
+
+            ordersConnection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl)
+                .build();
+
+            ordersConnection.on("Orders", orders => {
+                appendOutput(ordersOutput, "Orders update:\n" + JSON.stringify(orders, null, 2));
+            });
+
+            try {
+								subscribeOrdersBtn.disabled = true;
+								stopOrdersBtn.disabled = false;
+                await ordersConnection.start();
+                appendOutput(ordersOutput, "Connected to DataHub for Orders");
+                await ordersConnection.invoke("SubscribeToCustomerOrders", customerId);
+            } catch (err) {
+                appendOutput(ordersOutput, "Error connecting or subscribing: " + err);
+            }
+        });
+
+        stopOrdersBtn.addEventListener('click', async () => {
+            if (ordersConnection) {
+                try {
+                    await ordersConnection.stop();
+                    appendOutput(ordersOutput, "Disconnected from Orders DataHub");
+                } catch (err) {
+									appendOutput(ordersOutput, "Error stopping connection: " + err);
+                } finally {
+									ordersConnection = null;
+									subscribeOrdersBtn.disabled = false;
+									stopOrdersBtn.disabled = true;
+                }
+            }
+        });
+
+        subscribeCustomerBtn.addEventListener('click', async () => {
+            const customerId = prompt("Enter CustomerId to subscribe to Customer details:");
+            if (!customerId) return;
+
+            customerConnection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl)
+                .build();
+
+            customerConnection.on("Customer", customer => {
+                appendOutput(customerOutput, "Customer update:\n" + JSON.stringify(customer, null, 2));
+            });
+
+            try {
+								subscribeCustomerBtn.disabled = true;
+								stopCustomerBtn.disabled = false;
+                await customerConnection.start();
+                appendOutput(customerOutput, "Connected to DataHub for Customer");
+                await customerConnection.invoke("SubscribeToCustomer", customerId);
+            } catch (err) {
+                appendOutput(customerOutput, "Error connecting or subscribing: " + err);
+            }
+        });
+
+        stopCustomerBtn.addEventListener('click', async () => {
+            if (customerConnection) {
+                try {
+                    await customerConnection.stop();
+                    appendOutput(customerOutput, "Disconnected from Customer DataHub");
+                } catch (err) {
+                    appendOutput(customerOutput, "Error stopping connection: " + err);
+                } finally {
+                    customerConnection = null;
+                    subscribeCustomerBtn.disabled = false;
+                    stopCustomerBtn.disabled = true;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

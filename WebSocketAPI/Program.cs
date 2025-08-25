@@ -1,4 +1,10 @@
 
+using WebSocketAPI.Controllers;
+using WebSocketAPI.Services;
+using WebSocketAPI.Data;
+using Microsoft.EntityFrameworkCore;
+using WebSocketAPI.Hubs;
+
 namespace WebSocketAPI
 {
     public class Program
@@ -7,21 +13,36 @@ namespace WebSocketAPI
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
+						var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+						builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+
+						builder.Services.AddScoped<DatabaseService>();
+						builder.Services.AddScoped<CrudService>();
 
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+						builder.Services.AddSignalR();
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
+						app.UseStaticFiles();
+
+						app.UseRouting();
+
+						app.MapGet("/", async context => {
+								context.Response.ContentType = "text/html";
+								await context.Response.SendFileAsync("wwwroot/index.html");
+						});
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+
+						
 
             app.UseHttpsRedirection();
 
@@ -29,6 +50,7 @@ namespace WebSocketAPI
 
 
             app.MapControllers();
+						app.MapHub<DataHub>("/datahub");
 
             app.Run();
         }
